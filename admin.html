@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>관리자 · 디지털헬스 QR</title>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     관리자 콘솔 v1.0 — Supabase 연동 완료
+     로그인: 기존 파이프라인 트래커 계정 (Supabase Auth, 18개) 그대로 사용
+     ═══════════════════════════════════════════════════════════════════ -->
+
+<style>
+  :root{
+    --ink:#1d1d1f; --gray:#f5f5f7; --dim:#86868b; --line:#d2d2d7;
+    --blue:#0071e3; --green:#30d158; --red:#e02a2a; --amber:#ff9f0a;
+    --sans:-apple-system,BlinkMacSystemFont,"SF Pro Display","Apple SD Gothic Neo",
+           "Pretendard","Malgun Gothic",system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--sans);background:var(--gray);color:var(--ink);
+       font-size:15px;line-height:1.5;letter-spacing:-.01em;-webkit-font-smoothing:antialiased}
+  :focus-visible{outline:2.5px solid var(--blue);outline-offset:2px;border-radius:6px}
+  button,input,select,textarea{font-family:inherit;font-size:15px;color:var(--ink)}
+
+  .login{min-height:100vh;display:grid;place-items:center;padding:24px}
+  .login-card{width:100%;max-width:360px;background:#fff;border-radius:18px;padding:32px 28px;
+              box-shadow:0 2px 24px rgba(0,0,0,.06)}
+  .login-card h1{font-size:24px;font-weight:700;letter-spacing:-.03em;margin-bottom:4px}
+  .login-card p{color:var(--dim);font-size:13.5px;margin-bottom:24px}
+
+  .in{width:100%;background:var(--gray);border:1.5px solid transparent;border-radius:10px;
+      padding:11px 13px;min-height:44px;transition:.15s}
+  .in:focus{outline:none;background:#fff;border-color:var(--blue)}
+  textarea.in{min-height:72px;resize:vertical}
+  .lbl{display:block;font-size:12px;font-weight:600;color:var(--dim);margin:14px 0 6px}
+  .lbl:first-child{margin-top:0}
+  .btn{border:0;border-radius:999px;padding:11px 18px;min-height:42px;font-weight:600;cursor:pointer;
+       background:var(--blue);color:#fff;transition:.15s;white-space:nowrap;text-decoration:none;
+       display:inline-flex;align-items:center;justify-content:center}
+  .btn:disabled{opacity:.45;cursor:progress}
+  .btn.ghost{background:#fff;color:var(--ink);border:1.5px solid var(--line)}
+  .btn.danger{background:#fff;color:var(--red);border:1.5px solid var(--line)}
+  .btn.sm{padding:7px 13px;min-height:34px;font-size:13px}
+  .btn.wide{width:100%}
+  .msg{margin-top:12px;font-size:13.5px;padding:10px 12px;border-radius:10px;display:none}
+  .msg.show{display:block}
+  .msg.err{background:#fff5f5;color:#c22;border:1px solid #f3caca}
+  .msg.ok{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0}
+
+  .app{display:none}
+  .app.on{display:block}
+  header.top{position:sticky;top:0;z-index:30;height:52px;display:flex;align-items:center;
+             justify-content:space-between;padding:0 20px;background:rgba(255,255,255,.78);
+             backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--line)}
+  .brand{font-size:14px;font-weight:600;letter-spacing:-.02em}
+  .who{font-size:12px;color:var(--dim);display:flex;align-items:center;gap:12px}
+
+  .tabs{display:flex;gap:4px;padding:14px 20px 0;max-width:1180px;margin:0 auto}
+  .tab{background:none;border:0;border-radius:999px;padding:8px 16px;font-weight:600;
+       font-size:14px;color:var(--dim);cursor:pointer}
+  .tab.on{background:var(--ink);color:#fff}
+
+  main{max-width:1180px;margin:0 auto;padding:18px 20px 80px}
+  .pane{display:none}
+  .pane.on{display:block}
+
+  .card{background:#fff;border-radius:16px;padding:20px;margin-bottom:14px}
+  .card h2{font-size:17px;font-weight:700;letter-spacing:-.02em;margin-bottom:2px}
+  .card .hint{font-size:12.5px;color:var(--dim);margin-bottom:16px}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  @media(max-width:720px){.g2,.g3{grid-template-columns:1fr}}
+
+  .warn{background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:13px 15px;
+        font-size:13px;line-height:1.65;color:#78350f;margin-bottom:14px}
+  .warn b{color:#78350f}
+
+  .item{display:flex;align-items:center;gap:12px;padding:13px 0;border-top:1px solid var(--line)}
+  .item:first-of-type{border-top:0}
+  .item-main{flex:1;min-width:0}
+  .item-t{font-weight:600;letter-spacing:-.02em;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .item-s{font-size:12.5px;color:var(--dim);overflow:hidden;text-overflow:ellipsis}
+  .pill{font-family:var(--mono);font-size:10px;letter-spacing:.04em;padding:2px 7px;
+        border-radius:999px;border:1px solid var(--line);color:var(--dim);white-space:nowrap}
+  .pill.live{border-color:var(--green);color:#128a37;background:#f0fdf4}
+  .pill.off{border-color:var(--line);color:var(--dim)}
+  .pill.hold{border-color:var(--amber);color:#b26a00;background:#fffbeb}
+  .pill.own{border-color:var(--blue);color:var(--blue)}
+
+  .pick{display:flex;align-items:center;gap:11px;padding:11px 12px;border:1.5px solid var(--line);
+        border-radius:12px;margin-bottom:7px;background:#fff;cursor:pointer}
+  .pick:has(input:checked){border-color:var(--blue);background:#f0f7ff}
+  .pick.locked{opacity:.5;cursor:not-allowed;background:var(--gray)}
+  .pick input{width:19px;height:19px;flex:none;accent-color:var(--blue)}
+  .pick-n{flex:1;font-weight:600;font-size:14.5px}
+  .ord{display:flex;gap:4px}
+  .ord button{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);
+              background:#fff;cursor:pointer;font-size:12px;line-height:1}
+  .ord button:disabled{opacity:.3;cursor:default}
+  .seq{font-family:var(--mono);font-size:11px;color:var(--blue);width:20px;text-align:center}
+
+  .qr-wrap{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap}
+  .qr-box{background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:14px;
+          display:grid;place-items:center;min-width:184px;min-height:184px}
+  .qr-box canvas{width:156px;height:156px;display:block}
+  .qr-side{flex:1;min-width:260px}
+  .url{font-family:var(--mono);font-size:11.5px;background:var(--gray);border-radius:10px;
+       padding:11px 12px;word-break:break-all;margin-bottom:10px}
+
+  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .filters select{background:#fff;border:1.5px solid var(--line);border-radius:999px;
+                  padding:8px 13px;min-height:38px;font-size:13.5px}
+  .lead{border-top:1px solid var(--line);padding:14px 0}
+  .lead:first-of-type{border-top:0}
+  .lead-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+  .lead-n{font-weight:700;letter-spacing:-.02em}
+  .lead-o{color:var(--dim);font-size:13.5px}
+  .lead-m{font-family:var(--mono);font-size:11.5px;color:var(--dim);margin-bottom:8px;line-height:1.7}
+  .lead-m b{color:var(--ink);font-weight:600}
+  .lead-a{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+  .lead-a select,.lead-a input{background:var(--gray);border:1px solid transparent;border-radius:8px;
+                               padding:6px 10px;min-height:34px;font-size:13px}
+  .req-material{color:var(--dim)} .req-demo{color:var(--blue)} .req-visit{color:#128a37}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(108px,1fr));gap:1px;
+         background:var(--line);border-radius:12px;overflow:hidden;margin-bottom:16px}
+  .stat{background:#fff;padding:14px}
+  .stat b{display:block;font-family:var(--mono);font-size:22px;font-weight:600;letter-spacing:-.02em}
+  .stat span{font-size:11.5px;color:var(--dim)}
+
+  .empty{text-align:center;color:var(--dim);font-size:14px;padding:32px 0}
+
+  .modal{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.32);display:none;
+         align-items:flex-start;justify-content:center;padding:24px;overflow:auto}
+  .modal.on{display:flex}
+  .modal-c{background:#fff;border-radius:18px;padding:24px;width:100%;max-width:540px;margin:auto}
+  .modal-c h2{font-size:19px;font-weight:700;letter-spacing:-.03em;margin-bottom:4px}
+  .modal-c .hint{font-size:12.5px;color:var(--dim);margin-bottom:16px}
+
+  /* 이미지 업로드 */
+  .drop{border:1.5px dashed var(--line);border-radius:12px;padding:18px;text-align:center;
+        background:var(--gray);cursor:pointer;transition:.15s;font-size:13.5px;color:var(--dim)}
+  .drop:hover,.drop.over{border-color:var(--blue);background:#f0f7ff;color:var(--blue)}
+  .thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .thumb{position:relative;width:88px;height:88px;border-radius:10px;overflow:hidden;
+         border:1px solid var(--line);background:#fff}
+  .thumb img{width:100%;height:100%;object-fit:contain}
+  .thumb button{position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;
+                border:0;background:rgba(0,0,0,.62);color:#fff;font-size:11px;line-height:1;
+                cursor:pointer;padding:0}
+  .thumb .sz{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.6);color:#fff;
+             font-family:var(--mono);font-size:9px;text-align:center;padding:2px}
+</style>
+</head>
+<body>
+
+<div class="login" id="login">
+  <div class="login-card">
+    <h1>관리자</h1>
+    <p>디지털헬스 QR · 리드 관리<br>파이프라인 트래커 계정으로 로그인하세요.</p>
+    <label class="lbl" for="em">이메일</label>
+    <input class="in" id="em" type="email" autocomplete="username">
+    <label class="lbl" for="pw">비밀번호</label>
+    <input class="in" id="pw" type="password" autocomplete="current-password">
+    <button class="btn wide" id="loginBtn" style="margin-top:18px">로그인</button>
+    <div class="msg err" id="loginMsg"></div>
+  </div>
+</div>
+
+<div class="app" id="app">
+  <header class="top">
+    <span class="brand">디지털헬스 QR 관리자</span>
+    <span class="who"><span id="whoEmail"></span>
+      <button class="btn ghost sm" id="out">로그아웃</button></span>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab on" data-tab="events">행사 · QR</button>
+    <button class="tab"    data-tab="items">품목</button>
+    <button class="tab"    data-tab="leads">리드</button>
+  </nav>
+
+  <main>
+    <!-- ══ 행사 ══ -->
+    <section class="pane on" id="pane-events">
+      <div class="card">
+        <div class="row" style="margin-bottom:14px">
+          <div><h2>행사</h2>
+            <p class="hint" style="margin:0">행사 1개 = QR 1세트. 노출할 품목을 골라 지정합니다.</p></div>
+          <button class="btn" id="newEvent">+ 새 행사</button>
+        </div>
+        <div id="eventList"><div class="empty">불러오는 중…</div></div>
+      </div>
+
+      <div class="card" id="eventDetail" style="display:none">
+        <div class="row" style="margin-bottom:6px">
+          <h2 id="edTitle">행사</h2>
+          <button class="btn ghost sm" id="edClose">닫기</button>
+        </div>
+        <p class="hint" id="edSub"></p>
+
+        <div class="g2">
+          <div><label class="lbl">행사명</label>
+            <input class="in" id="ed-name" placeholder="2026 대한중환자의학회"></div>
+          <div><label class="lbl">유형</label>
+            <select class="in" id="ed-kind">
+              <option value="conference">학회</option>
+              <option value="symposium">심포지엄</option>
+              <option value="advisory">자문회의</option>
+              <option value="brochure">브로셔 · 리플렛</option>
+              <option value="email">이메일 · 카톡</option>
+              <option value="other">기타</option>
+            </select></div>
+        </div>
+        <div class="g3">
+          <div><label class="lbl">QR 주소 (slug) — 영소문자·숫자·하이픈</label>
+            <input class="in" id="ed-slug" placeholder="kscc2026" style="font-family:var(--mono)"></div>
+          <div><label class="lbl">시작일</label><input class="in" id="ed-start" type="date"></div>
+          <div><label class="lbl">종료일</label><input class="in" id="ed-end" type="date"></div>
+        </div>
+        <label class="lbl">장소 (선택)</label>
+        <input class="in" id="ed-venue" placeholder="코엑스 그랜드볼룸">
+
+        <div class="g2" style="margin-top:4px">
+          <div><label class="lbl">히어로 라벨 (비우면 행사명)</label>
+            <input class="in" id="ed-eyebrow"></div>
+          <div><label class="lbl">히어로 헤드라인 — 줄바꿈 가능 <span style="color:var(--amber)">[심의]</span></label>
+            <textarea class="in" id="ed-headline" placeholder="입원환자 모니터링,&#10;한자리에."></textarea></div>
+        </div>
+        <label class="lbl">히어로 설명 <span style="color:var(--amber)">[심의]</span></label>
+        <textarea class="in" id="ed-sub" placeholder="비우면 페이지 기본 문구가 나옵니다"></textarea>
+
+        <label class="lbl" style="display:flex;align-items:center;gap:9px;cursor:pointer">
+          <input type="checkbox" id="ed-active" style="width:18px;height:18px;accent-color:var(--blue)">
+          <span style="color:var(--ink);font-size:14px">활성 — 끄면 QR을 찍어도 기본 페이지가 뜹니다</span>
+        </label>
+
+        <h2 style="margin:26px 0 2px">노출 품목</h2>
+        <p class="hint">체크한 제품만 이 QR 페이지에 뜹니다. <b>심의 승인이 안 된 제품은 체크해도 공개되지 않습니다.</b></p>
+        <div id="pickList"></div>
+
+        <div class="row" style="margin-top:18px">
+          <button class="btn danger sm" id="edDelete">행사 삭제</button>
+          <button class="btn" id="edSave">저장</button>
+        </div>
+        <div class="msg" id="edMsg"></div>
+
+        <h2 style="margin:28px 0 2px">QR 코드</h2>
+        <p class="hint">배포처 태그를 다르게 해서 여러 장 뽑으세요. 리드가 어디서 왔는지 갈라집니다.</p>
+        <div class="qr-wrap">
+          <div class="qr-box"><canvas id="qrCanvas"></canvas></div>
+          <div class="qr-side">
+            <label class="lbl">배포처 태그 (선택)</label>
+            <input class="in" id="qrVia" placeholder="부스 / 리플렛 / 홍길동" style="margin-bottom:12px">
+            <div class="url" id="qrUrl">—</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn sm" id="qrPng">PNG 내려받기</button>
+              <button class="btn ghost sm" id="qrCopy">URL 복사</button>
+              <button class="btn ghost sm" id="qrOpen">미리보기</button>
+            </div>
+            <div class="msg" id="qrMsg"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ 품목 ══ -->
+    <section class="pane" id="pane-items">
+      <div class="card">
+        <div class="warn">
+          <b>공개 페이지는 이 탭의 콘텐츠만 읽습니다.</b> 내부 카탈로그(dh_catalog_products)의 설명은
+          광고심의를 거치지 않은 내부 문구라 절대 노출되지 않습니다.<br>
+          <b>승인</b>을 켜야 공개됩니다. 사내 광고심의 통과 전에는 켜지 마세요.
+        </div>
+        <div class="row" style="margin-bottom:14px">
+          <div><h2>품목</h2>
+            <p class="hint" style="margin:0">카탈로그 17개 제품의 공개용 콘텐츠</p></div>
+          <button class="btn ghost" id="syncCatalog">카탈로그에서 신규 제품 가져오기</button>
+        </div>
+        <div id="itemList"><div class="empty">불러오는 중…</div></div>
+        <div class="msg" id="itemsMsg"></div>
+      </div>
+    </section>
+
+    <!-- ══ 리드 ══ -->
+    <section class="pane" id="pane-leads">
+      <div class="card">
+        <div class="row" style="margin-bottom:14px">
+          <h2>리드</h2>
+          <button class="btn ghost sm" id="csv">CSV 내려받기</button>
+        </div>
+        <div class="stats" id="leadStats"></div>
+        <div class="filters">
+          <select id="fSrc"><option value="">전체 행사</option></select>
+          <select id="fType">
+            <option value="">전체 유형</option>
+            <option value="visit">방문 요청</option>
+            <option value="demo">데모 요청</option>
+            <option value="material">자료 받기</option>
+          </select>
+          <select id="fStatus">
+            <option value="">전체 상태</option>
+            <option value="new">신규</option><option value="assigned">배정됨</option>
+            <option value="contacted">연락함</option><option value="closed">종료</option>
+            <option value="dropped">보류</option>
+          </select>
+        </div>
+        <div id="leadList"><div class="empty">불러오는 중…</div></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ══ 품목 모달 ══ -->
+<div class="modal" id="itemModal">
+  <div class="modal-c">
+    <h2 id="imTitle">품목</h2>
+    <p class="hint" id="imCat"></p>
+    <div class="g2">
+      <div><label class="lbl">공개 표기명</label>
+        <input class="in" id="im-name" placeholder="CART BP pro"></div>
+      <div><label class="lbl">파이프라인 제품 (리드 등록 시 매핑)</label>
+        <select class="in" id="im-pipe"></select></div>
+    </div>
+    <div class="g3">
+      <div><label class="lbl">섹션 테마</label>
+        <select class="in" id="im-theme">
+          <option value="light">화이트</option><option value="gray">그레이</option>
+          <option value="dark">블랙</option>
+        </select></div>
+      <div><label class="lbl">강조색</label>
+        <input class="in" id="im-accent" type="color" style="padding:4px;height:46px"></div>
+      <div><label class="lbl">정렬 (작을수록 위)</label>
+        <input class="in" id="im-sort" type="number"></div>
+    </div>
+    <label class="lbl">라벨 (제품명 위 작은 글씨)</label>
+    <input class="in" id="im-eyebrow" placeholder="ECG · VITALS" style="font-family:var(--mono)">
+    <label class="lbl">헤드라인 <span style="color:var(--amber)">[심의]</span></label>
+    <input class="in" id="im-headline" placeholder="병동의 활력징후를, 연속으로.">
+    <label class="lbl">한 줄 설명 <span style="color:var(--amber)">[심의]</span></label>
+    <input class="in" id="im-tagline">
+    <label class="lbl">핵심 포인트 — 한 줄에 하나 <span style="color:var(--amber)">[심의]</span></label>
+    <textarea class="in" id="im-bullets" style="min-height:96px"></textarea>
+    <label class="lbl">제품 이미지 — 최대 2장 <span style="color:var(--amber)">[심의]</span></label>
+    <div class="drop" id="imDrop">
+      원본 그대로 올리세요 — 자동으로 1600px · WebP 로 압축합니다<br>
+      <span style="font-size:12px">누끼(투명 PNG)는 투명 유지 · 클릭 또는 드래그</span>
+    </div>
+    <input type="file" id="imFile" accept="image/*" multiple hidden>
+    <div class="thumbs" id="imThumbs"></div>
+
+    <label class="lbl">심의번호 / 자료 작성일</label>
+    <input class="in" id="im-note" placeholder="심의번호 0000-0000 / 2026.07">
+
+    <div class="warn" style="margin-top:16px;margin-bottom:0">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+        <input type="checkbox" id="im-approved" style="width:19px;height:19px;accent-color:var(--green)">
+        <b>공개 승인 — 사내 광고심의를 통과한 문구입니다</b>
+      </label>
+    </div>
+
+    <div class="msg" id="imMsg"></div>
+    <div class="row" style="margin-top:18px">
+      <button class="btn ghost" id="imCancel">취소</button>
+      <button class="btn" id="imSave">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 파이프라인 등록 모달 ══ -->
+<div class="modal" id="pipeModal">
+  <div class="modal-c">
+    <h2>파이프라인 등록</h2>
+    <p class="hint" id="pmLead"></p>
+    <div class="g2">
+      <div><label class="lbl">거래처 코드</label><input class="in" id="pm-acc-code"></div>
+      <div><label class="lbl">거래처명</label><input class="in" id="pm-acc-name"></div>
+    </div>
+    <div class="g3">
+      <div><label class="lbl">본부</label><select class="in" id="pm-hq"></select></div>
+      <div><label class="lbl">지역</label><select class="in" id="pm-div"></select></div>
+      <div><label class="lbl">지점</label>
+        <input class="in" id="pm-office" list="officeList">
+        <datalist id="officeList"></datalist></div>
+    </div>
+    <div class="g3">
+      <div><label class="lbl">담당자</label><input class="in" id="pm-rep"></div>
+      <div><label class="lbl">제품</label><select class="in" id="pm-product"></select></div>
+      <div><label class="lbl">단계</label><select class="in" id="pm-stage"></select></div>
+    </div>
+    <label class="lbl">메모</label>
+    <textarea class="in" id="pm-notes"></textarea>
+    <div class="msg" id="pmMsg"></div>
+    <div class="row" style="margin-top:18px">
+      <button class="btn ghost" id="pmCancel">취소</button>
+      <button class="btn" id="pmSave">파이프라인에 등록</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════ */
+const CONFIG = {
+  SUPABASE_URL: 'https://kcelymlhturzsiwriviq.supabase.co',
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjZWx5bWxodHVyenNpd3JpdmlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3NDcwNjAsImV4cCI6MjA5MjMyMzA2MH0.bxcLNAjjzw0UrKYKxGaWNfiVQjDaorFGFvw0AE4kR0I',
+  // 고객용 페이지(index.html) 주소.
+  // 비워두면 이 파일이 있는 폴더로 자동 계산합니다.
+  // ★ admin 을 다른 repo/폴더에 두거나 회사 도메인을 붙이면 여기에 직접 적으세요.
+  //   예: 'https://dh.daewoong.co.kr/'
+  PUBLIC_URL: '',
+};
+// 파일명이 아니라 '마지막 경로 조각'을 떼어냅니다 → admin 파일명을 바꿔도 안전
+const PUBLIC_URL = CONFIG.PUBLIC_URL
+  || (location.origin + location.pathname.replace(/[^/]*$/, ''));
+
+const sb = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+
+const $  = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const show = (el, text, kind = 'err') => {
+  el.className = `msg ${kind} show`; el.textContent = text;
+  setTimeout(() => el.classList.remove('show'), 4500);
+};
+const opts = (arr, sel) => arr.map(v =>
+  `<option value="${esc(v)}" ${v === sel ? 'selected' : ''}>${esc(v)}</option>`).join('');
+
+const KIND   = { conference:'학회', symposium:'심포지엄', advisory:'자문회의',
+                 brochure:'브로셔', email:'이메일', other:'기타' };
+const TYPE   = { material:'자료 받기', demo:'데모 요청', visit:'방문 요청' };
+const STATUS = { new:'신규', assigned:'배정됨', contacted:'연락함', closed:'종료', dropped:'보류' };
+
+/* pipelines 테이블의 CHECK 제약과 동일해야 합니다 */
+const PIPE_PRODUCT = ['씽크','CGM Live','카트ON','카트BP','CL note','모비케어','에티아',
+                      '옵티나&위스키','더스피로킷','리브레','웰다'];
+const PIPE_HQ      = ['병원','로컬'];
+const PIPE_DIV     = ['서울1','서울2','서울3','서울4','지방1','지방2'];
+const PIPE_STAGE   = ['제품설명회','데모','계약','첫처방'];
+const PIPE_OFFICE  = ['병원서울3','병원경인','병원중부1','병원대전','병원청주','병원강원',
+                      '병원부산1','병원부산2','병원광주2','병원동부','경인4','남부1','남부2','동부1'];
+
+let USER = null, CATALOG = [], PRODUCTS = [], EVENTS = [], LEADS = [], CUR = null, PICK = [];
+
+/* ═══ 로그인 ═══ */
+$('#loginBtn').addEventListener('click', async () => {
+  const b = $('#loginBtn'); b.disabled = true;
+  const { error } = await sb.auth.signInWithPassword({
+    email: $('#em').value.trim(), password: $('#pw').value });
+  b.disabled = false;
+  if (error) return show($('#loginMsg'), '이메일 또는 비밀번호를 확인해 주세요.');
+  boot();
+});
+$('#pw').addEventListener('keydown', e => { if (e.key === 'Enter') $('#loginBtn').click(); });
+$('#out').addEventListener('click', async () => { await sb.auth.signOut(); location.reload(); });
+sb.auth.getSession().then(({ data }) => { if (data.session) boot(); });
+
+async function boot() {
+  const { data } = await sb.auth.getUser();
+  USER = data.user;
+  $('#whoEmail').textContent = USER?.email || '';
+  $('#login').style.display = 'none';
+  $('#app').classList.add('on');
+  $('#officeList').innerHTML = PIPE_OFFICE.map(o => `<option value="${esc(o)}">`).join('');
+  await loadAll();
+}
+async function loadAll() {
+  await Promise.all([loadCatalog(), loadProducts(), loadLeads()]);
+  await loadEvents();
+}
+
+$$('.tab').forEach(t => t.addEventListener('click', () => {
+  $$('.tab').forEach(x => x.classList.toggle('on', x === t));
+  $$('.pane').forEach(p => p.classList.toggle('on', p.id === `pane-${t.dataset.tab}`));
+}));
+
+/* ═══════════════════════════════════════════════════════════
+   품목
+   ═══════════════════════════════════════════════════════════ */
+async function loadCatalog() {
+  const { data } = await sb.from('dh_catalog_products')
+    .select('id,name,category,is_hidden').order('sort_order');
+  CATALOG = data || [];
+}
+async function loadProducts() {
+  const { data, error } = await sb.from('landing_products').select('*').order('sort_order');
+  if (error) return console.error(error);
+  PRODUCTS = data;
+  renderItems();
+}
+const catOf = id => CATALOG.find(c => c.id === id);
+
+function renderItems() {
+  const el = $('#itemList');
+  if (!PRODUCTS.length) return el.innerHTML = '<div class="empty">품목이 없습니다.</div>';
+  el.innerHTML = PRODUCTS.map(p => {
+    const c = catOf(p.product_id);
+    const ready = p.approved;
+    return `
+      <div class="item">
+        <div class="item-main">
+          <div class="item-t">${esc(p.display_name)}
+            <span class="pill ${ready ? 'live' : 'hold'}">${ready ? '공개 중' : '심의 대기'}</span>
+            ${p.pipeline_product ? `<span class="pill own">${esc(p.pipeline_product)}</span>` : ''}
+          </div>
+          <div class="item-s">${esc(p.tagline || c?.category || '—')}</div>
+        </div>
+        <button class="btn ghost sm" data-edit-item="${p.product_id}">수정</button>
+      </div>`;
+  }).join('');
+}
+
+$('#syncCatalog').addEventListener('click', async () => {
+  const missing = CATALOG.filter(c => !c.is_hidden && !PRODUCTS.some(p => p.product_id === c.id));
+  if (!missing.length) return show($('#itemsMsg'), '카탈로그의 모든 제품이 이미 등록돼 있습니다.', 'ok');
+  const { error } = await sb.from('landing_products').insert(missing.map(c => ({
+    product_id: c.id, display_name: c.name, tagline: c.category || null, approved: false,
+  })));
+  if (error) return show($('#itemsMsg'), error.message);
+  await loadProducts();
+  show($('#itemsMsg'), `${missing.length}개 제품을 가져왔습니다. (전부 심의 대기 상태)`, 'ok');
+});
+
+const im = $('#itemModal');
+let imId = null;
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-edit-item]');
+  if (b) openItem(PRODUCTS.find(p => p.product_id === Number(b.dataset.editItem)));
+});
+$('#imCancel').addEventListener('click', () => im.classList.remove('on'));
+
+/* ── 이미지: 업로드 전에 브라우저에서 리사이즈 + WebP 변환 ───────
+   학회 와이파이에서 죽지 않으려면 이게 필수입니다.
+   4MB PNG 원본을 그대로 올리면 부스에서 페이지가 안 뜹니다.        */
+const MAX_W = 1600, WEBP_Q = 0.82;
+let imImages = [];
+
+async function shrink(file) {
+  if (file.type === 'image/svg+xml') return file;          // SVG 는 그대로
+  const bmp = await createImageBitmap(file);
+  const s = Math.min(1, MAX_W / bmp.width);
+  const w = Math.round(bmp.width * s), h = Math.round(bmp.height * s);
+  const cv = document.createElement('canvas');
+  cv.width = w; cv.height = h;
+  cv.getContext('2d').drawImage(bmp, 0, 0, w, h);
+  bmp.close?.();
+  const blob = await new Promise(r => cv.toBlob(r, 'image/webp', WEBP_Q));
+  return blob && blob.size < file.size ? blob : file;      // 더 커지면 원본 유지
+}
+
+const kb = n => `${Math.round(n / 1024)}KB`;
+
+function renderThumbs() {
+  $('#imThumbs').innerHTML = imImages.map((im2, i) => `
+    <div class="thumb">
+      <img src="${esc(im2.url)}" alt="">
+      ${im2.size ? `<span class="sz">${kb(im2.size)}</span>` : ''}
+      <button type="button" data-rm="${i}">✕</button>
+    </div>`).join('');
+}
+$('#imThumbs').addEventListener('click', e => {
+  const b = e.target.closest('[data-rm]');
+  if (!b) return;
+  imImages.splice(Number(b.dataset.rm), 1);
+  renderThumbs();
+});
+
+$('#imDrop').addEventListener('click', () => $('#imFile').click());
+['dragover', 'dragleave', 'drop'].forEach(ev =>
+  $('#imDrop').addEventListener(ev, e => {
+    e.preventDefault();
+    $('#imDrop').classList.toggle('over', ev === 'dragover');
+    if (ev === 'drop') handleFiles(e.dataTransfer.files);
+  }));
+$('#imFile').addEventListener('change', e => { handleFiles(e.target.files); e.target.value = ''; });
+
+async function handleFiles(files) {
+  const room = 2 - imImages.length;
+  if (room <= 0) return show($('#imMsg'), '이미지는 제품당 최대 2장입니다.');
+  const drop = $('#imDrop');
+  const orig = drop.innerHTML;
+
+  for (const f of [...files].slice(0, room)) {
+    if (!f.type.startsWith('image/')) continue;
+    drop.textContent = `${f.name} 압축 중…`;
+    try {
+      const blob = await shrink(f);
+      const ext  = blob.type === 'image/svg+xml' ? 'svg' : 'webp';
+      const path = `products/${imId}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
+      drop.textContent = `${f.name} 업로드 중… (${kb(f.size)} → ${kb(blob.size)})`;
+      const { error } = await sb.storage.from('landing')
+        .upload(path, blob, { contentType: blob.type, upsert: false });
+      if (error) throw error;
+      const { data } = sb.storage.from('landing').getPublicUrl(path);
+      imImages.push({ url: data.publicUrl, size: blob.size });
+      renderThumbs();
+    } catch (err) {
+      show($('#imMsg'), `업로드 실패: ${err.message || err}`);
+    }
+  }
+  drop.innerHTML = orig;
+}
+
+function openItem(p) {
+  imId = p.product_id;
+  imImages = (p.images || []).map(u => ({ url: u, size: 0 }));
+  renderThumbs();
+  const c = catOf(p.product_id);
+  $('#imTitle').textContent = `품목 · ${p.display_name}`;
+  $('#imCat').textContent   = `내부 카탈로그: ${c?.name || '—'} (${c?.category || '—'})`;
+  $('#im-name').value     = p.display_name || '';
+  $('#im-pipe').innerHTML = '<option value="">— 없음 —</option>' + opts(PIPE_PRODUCT, p.pipeline_product);
+  $('#im-theme').value    = p.theme;
+  $('#im-accent').value   = p.accent;
+  $('#im-sort').value     = p.sort_order;
+  $('#im-eyebrow').value  = p.eyebrow || '';
+  $('#im-headline').value = p.headline || '';
+  $('#im-tagline').value  = p.tagline || '';
+  $('#im-bullets').value  = (p.bullets || []).join('\n');
+  $('#im-note').value     = p.approval_note || '';
+  $('#im-approved').checked = p.approved;
+  im.classList.add('on');
+}
+
+$('#imSave').addEventListener('click', async () => {
+  if (!$('#im-name').value.trim()) return show($('#imMsg'), '공개 표기명을 입력해 주세요.');
+  const row = {
+    display_name:     $('#im-name').value.trim(),
+    pipeline_product: $('#im-pipe').value || null,
+    theme:            $('#im-theme').value,
+    accent:           $('#im-accent').value,
+    sort_order:       Number($('#im-sort').value) || 100,
+    eyebrow:          $('#im-eyebrow').value.trim()  || null,
+    headline:         $('#im-headline').value.trim() || null,
+    tagline:          $('#im-tagline').value.trim()  || null,
+    bullets:          $('#im-bullets').value.split('\n').map(s => s.trim()).filter(Boolean),
+    images:           imImages.map(i => i.url),
+    approval_note:    $('#im-note').value.trim() || null,
+    approved:         $('#im-approved').checked,
+    updated_at:       new Date().toISOString(),
+  };
+  const { error } = await sb.from('landing_products').update(row).eq('product_id', imId);
+  if (error) return show($('#imMsg'), error.message);
+  im.classList.remove('on');
+  await loadProducts();
+  if (CUR) renderPick();
+});
+
+/* ═══════════════════════════════════════════════════════════
+   행사
+   ═══════════════════════════════════════════════════════════ */
+async function loadEvents() {
+  const { data, error } = await sb.from('landing_events')
+    .select('*, landing_event_products(product_id, sort_order)')
+    .order('created_at', { ascending: false });
+  if (error) return console.error(error);
+  EVENTS = data;
+  renderEvents();
+  $('#fSrc').innerHTML = '<option value="">전체 행사</option>'
+    + EVENTS.map(e => `<option value="${esc(e.slug)}">${esc(e.name)}</option>`).join('');
+}
+
+function renderEvents() {
+  const el = $('#eventList');
+  if (!EVENTS.length) return el.innerHTML = '<div class="empty">행사가 없습니다. 새 행사를 만들어 보세요.</div>';
+  el.innerHTML = EVENTS.map(e => {
+    const ids = (e.landing_event_products || []).map(x => x.product_id);
+    const live = ids.filter(id => PRODUCTS.find(p => p.product_id === id)?.approved).length;
+    const leads = LEADS.filter(l => l.src === e.slug).length;
+    const when = [e.starts_on, e.ends_on].filter(Boolean).join(' ~ ') || '기간 미정';
+    return `
+      <div class="item">
+        <div class="item-main">
+          <div class="item-t">${esc(e.name)}
+            <span class="pill">${KIND[e.kind] || e.kind}</span>
+            <span class="pill ${e.active ? 'live' : 'off'}">${e.active ? '활성' : '비활성'}</span>
+            ${live < ids.length ? `<span class="pill hold">${ids.length - live}개 심의 대기</span>` : ''}
+          </div>
+          <div class="item-s">
+            <span style="font-family:var(--mono)">?src=${esc(e.slug)}</span>
+            · ${esc(when)} · 공개 품목 ${live}개 · 리드 ${leads}건
+          </div>
+        </div>
+        <button class="btn ghost sm" data-open-event="${esc(e.id)}">열기</button>
+      </div>`;
+  }).join('');
+}
+
+$('#newEvent').addEventListener('click', () => openEvent(null));
+$('#edClose').addEventListener('click', () => { $('#eventDetail').style.display = 'none'; CUR = null; });
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-open-event]');
+  if (b) openEvent(EVENTS.find(x => x.id === b.dataset.openEvent));
+});
+
+function openEvent(e) {
+  CUR = e || { id: null, kind: 'conference', active: true };
+  $('#edTitle').textContent = e ? e.name : '새 행사';
+  $('#edSub').textContent = e
+    ? `QR 주소: ?src=${e.slug}`
+    : '이미 배포한 QR이 있다면 slug 를 바꾸지 마세요 — 기존 QR이 무효가 됩니다.';
+  $('#ed-name').value     = e?.name || '';
+  $('#ed-kind').value     = e?.kind || 'conference';
+  $('#ed-slug').value     = e?.slug || '';
+  $('#ed-start').value    = e?.starts_on || '';
+  $('#ed-end').value      = e?.ends_on || '';
+  $('#ed-venue').value    = e?.venue || '';
+  $('#ed-eyebrow').value  = e?.hero_eyebrow || '';
+  $('#ed-headline').value = e?.hero_headline || '';
+  $('#ed-sub').value      = e?.hero_sub || '';
+  $('#ed-active').checked = e ? e.active : true;
+  $('#edDelete').style.display = e ? '' : 'none';
+
+  PICK = (e?.landing_event_products || [])
+    .slice().sort((a, b) => a.sort_order - b.sort_order)
+    .map(x => x.product_id)
+    .filter(id => PRODUCTS.some(p => p.product_id === id));
+
+  renderPick();
+  drawQR();
+  $('#eventDetail').style.display = '';
+  $('#eventDetail').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderPick() {
+  const chosen = PICK.map(id => PRODUCTS.find(p => p.product_id === id)).filter(Boolean);
+  const rest   = PRODUCTS.filter(p => !PICK.includes(p.product_id));
+  $('#pickList').innerHTML = [
+    ...chosen.map((p, i) => pickRow(p, true, i, chosen.length)),
+    ...rest.map(p => pickRow(p, false)),
+  ].join('');
+}
+function pickRow(p, on, i, total) {
+  return `
+    <label class="pick">
+      <input type="checkbox" data-pick="${p.product_id}" ${on ? 'checked' : ''}>
+      <span class="seq">${on ? String(i + 1).padStart(2, '0') : ''}</span>
+      <span class="pick-n">${esc(p.display_name)}</span>
+      <span class="pill ${p.approved ? 'live' : 'hold'}">${p.approved ? '공개' : '심의 대기'}</span>
+      <span class="item-s" style="flex:2">${esc(p.tagline || '')}</span>
+      ${on ? `<span class="ord">
+        <button type="button" data-up="${p.product_id}"   ${i === 0 ? 'disabled' : ''}>▲</button>
+        <button type="button" data-down="${p.product_id}" ${i === total - 1 ? 'disabled' : ''}>▼</button>
+      </span>` : ''}
+    </label>`;
+}
+
+$('#pickList').addEventListener('click', e => {
+  const b = e.target.closest('[data-up],[data-down]');
+  if (!b) return;
+  e.preventDefault();
+  const id = Number(b.dataset.up || b.dataset.down);
+  const i = PICK.indexOf(id), j = b.dataset.up ? i - 1 : i + 1;
+  if (j >= 0 && j < PICK.length) { [PICK[i], PICK[j]] = [PICK[j], PICK[i]]; renderPick(); }
+});
+$('#pickList').addEventListener('change', e => {
+  const cb = e.target.closest('[data-pick]');
+  if (!cb) return;
+  const id = Number(cb.dataset.pick);
+  if (cb.checked) { if (!PICK.includes(id)) PICK.push(id); }
+  else PICK = PICK.filter(x => x !== id);
+  renderPick();
+});
+
+$('#edSave').addEventListener('click', async () => {
+  const slug = $('#ed-slug').value.trim().toLowerCase();
+  if (!$('#ed-name').value.trim())             return show($('#edMsg'), '행사명을 입력해 주세요.');
+  if (!/^[a-z0-9][a-z0-9-]{1,39}$/.test(slug)) return show($('#edMsg'), 'QR 주소는 영소문자·숫자·하이픈만 가능합니다. 예: kscc2026');
+  if (!PICK.length)                            return show($('#edMsg'), '노출할 품목을 최소 1개 선택해 주세요.');
+
+  const row = {
+    slug,
+    name:          $('#ed-name').value.trim(),
+    kind:          $('#ed-kind').value,
+    venue:         $('#ed-venue').value.trim()    || null,
+    starts_on:     $('#ed-start').value           || null,
+    ends_on:       $('#ed-end').value             || null,
+    hero_eyebrow:  $('#ed-eyebrow').value.trim()  || null,
+    hero_headline: $('#ed-headline').value.trim() || null,
+    hero_sub:      $('#ed-sub').value.trim()      || null,
+    active:        $('#ed-active').checked,
+    created_by:    USER?.email || null,
+  };
+
+  const btn = $('#edSave'); btn.disabled = true;
+  let id = CUR.id;
+  if (id) {
+    const { error } = await sb.from('landing_events').update(row).eq('id', id);
+    if (error) { btn.disabled = false; return show($('#edMsg'), error.message); }
+  } else {
+    const { data, error } = await sb.from('landing_events').insert(row).select('id').single();
+    if (error) { btn.disabled = false; return show($('#edMsg'), error.message); }
+    id = data.id;
+  }
+  await sb.from('landing_event_products').delete().eq('event_id', id);
+  const { error: e2 } = await sb.from('landing_event_products')
+    .insert(PICK.map((pid, i) => ({ event_id: id, product_id: pid, sort_order: i })));
+  btn.disabled = false;
+  if (e2) return show($('#edMsg'), e2.message);
+
+  await loadEvents();
+  CUR = EVENTS.find(x => x.id === id);
+  $('#edTitle').textContent = CUR.name;
+  $('#edSub').textContent = `QR 주소: ?src=${CUR.slug}`;
+  $('#edDelete').style.display = '';
+  drawQR();
+
+  const pending = PICK.filter(id2 => !PRODUCTS.find(p => p.product_id === id2)?.approved).length;
+  show($('#edMsg'), pending
+    ? `저장했습니다. 단, ${pending}개 품목이 심의 대기라 아직 공개되지 않습니다.`
+    : '저장했습니다.', pending ? 'err' : 'ok');
+});
+
+$('#edDelete').addEventListener('click', async () => {
+  if (!CUR?.id) return;
+  if (!confirm(`"${CUR.name}" 행사를 삭제할까요?\n\n배포한 QR은 기본 페이지로 넘어갑니다.\n리드 기록은 그대로 남습니다.`)) return;
+  const { error } = await sb.from('landing_events').delete().eq('id', CUR.id);
+  if (error) return show($('#edMsg'), error.message);
+  $('#eventDetail').style.display = 'none';
+  CUR = null;
+  await loadEvents();
+});
+
+/* ═══ QR ═══ */
+function qrUrl() {
+  const slug = $('#ed-slug').value.trim().toLowerCase();
+  if (!slug) return '';
+  const u = new URL(PUBLIC_URL, location.href);
+  u.searchParams.set('src', slug);
+  const via = $('#qrVia').value.trim();
+  if (via) u.searchParams.set('via', via);
+  return u.toString();
+}
+async function drawQR() {
+  const url = qrUrl();
+  $('#qrUrl').textContent = url || 'QR 주소(slug)를 입력하면 여기에 URL이 뜹니다.';
+  const c = $('#qrCanvas');
+  if (!url || typeof QRCode === 'undefined') {
+    c.getContext('2d').clearRect(0, 0, c.width, c.height);
+    return;
+  }
+  await QRCode.toCanvas(c, url, {
+    width: 1024, margin: 2, errorCorrectionLevel: 'M',
+    color: { dark: '#000000', light: '#ffffff' },
+  });
+}
+$('#ed-slug').addEventListener('input', drawQR);
+$('#qrVia').addEventListener('input', drawQR);
+
+$('#qrPng').addEventListener('click', () => {
+  if (!qrUrl()) return show($('#qrMsg'), 'QR 주소를 먼저 입력해 주세요.');
+  $('#qrCanvas').toBlob(b => {
+    const via = $('#qrVia').value.trim();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(b);
+    a.download = `QR_${$('#ed-slug').value.trim()}${via ? '_' + via : ''}.png`;
+    a.click(); URL.revokeObjectURL(a.href);
+  }, 'image/png');
+});
+$('#qrCopy').addEventListener('click', async () => {
+  const url = qrUrl(); if (!url) return;
+  try { await navigator.clipboard.writeText(url); show($('#qrMsg'), 'URL을 복사했습니다.', 'ok'); }
+  catch { show($('#qrMsg'), '복사에 실패했습니다. URL을 직접 선택해 주세요.'); }
+});
+$('#qrOpen').addEventListener('click', () => { const u = qrUrl(); if (u) open(u, '_blank'); });
+
+/* ═══════════════════════════════════════════════════════════
+   리드
+   ═══════════════════════════════════════════════════════════ */
+async function loadLeads() {
+  const { data, error } = await sb.from('landing_leads')
+    .select('*').order('created_at', { ascending: false });
+  if (error) return console.error(error);
+  LEADS = data;
+  renderLeads();
+}
+['#fSrc', '#fType', '#fStatus'].forEach(s => $(s).addEventListener('change', renderLeads));
+
+const filtered = () => {
+  const s = $('#fSrc').value, t = $('#fType').value, st = $('#fStatus').value;
+  return LEADS.filter(l =>
+    (!s || l.src === s) && (!t || l.request_type === t) && (!st || l.status === st));
+};
+const pname = id => PRODUCTS.find(p => p.product_id === id)?.display_name || `#${id}`;
+
+function renderLeads() {
+  const rows = filtered();
+  $('#leadStats').innerHTML = [
+    ['전체',      rows.length],
+    ['방문 요청', rows.filter(l => l.request_type === 'visit').length],
+    ['데모 요청', rows.filter(l => l.request_type === 'demo').length],
+    ['자료 받기', rows.filter(l => l.request_type === 'material').length],
+    ['미처리',    rows.filter(l => l.status === 'new').length],
+    ['파이프라인', rows.filter(l => l.pipeline_id).length],
+  ].map(([k, v]) => `<div class="stat"><b>${v}</b><span>${k}</span></div>`).join('');
+
+  const el = $('#leadList');
+  if (!rows.length) return el.innerHTML = '<div class="empty">리드가 없습니다.</div>';
+
+  el.innerHTML = rows.map(l => {
+    const ev = EVENTS.find(e => e.slug === l.src);
+    const when = new Date(l.created_at).toLocaleString('ko-KR',
+      { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+    const names = (l.product_ids || []).map(pname).join(', ') || '—';
+    return `
+      <div class="lead">
+        <div class="lead-h">
+          <span class="lead-n">${esc(l.name)}</span>
+          <span class="lead-o">${esc(l.hospital)} · ${esc(l.department)}</span>
+          <span class="pill req-${l.request_type}">${TYPE[l.request_type]}</span>
+          ${l.pipeline_id ? '<span class="pill live">파이프라인 등록됨</span>' : ''}
+        </div>
+        <div class="lead-m">
+          ${esc(when)} · <b>${esc(ev?.name || l.src || 'direct')}</b>${l.via ? ' / ' + esc(l.via) : ''}
+          · ${esc(l.phone)}${l.email ? ' · ' + esc(l.email) : ''} · 관심: ${esc(names)}
+          ${l.message ? '<br>“' + esc(l.message) + '”' : ''}
+        </div>
+        <div class="lead-a">
+          <select data-status="${esc(l.id)}">
+            ${Object.entries(STATUS).map(([k, v]) =>
+              `<option value="${k}" ${l.status === k ? 'selected' : ''}>${v}</option>`).join('')}
+          </select>
+          <input data-assign="${esc(l.id)}" value="${esc(l.assigned_to || '')}" placeholder="배정 담당자">
+          <a class="btn ghost sm" href="tel:${esc((l.phone || '').replace(/[^0-9+]/g, ''))}">전화</a>
+          ${l.pipeline_id ? '' : `<button class="btn sm" data-pipe="${esc(l.id)}">파이프라인 등록</button>`}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+$('#leadList').addEventListener('change', async e => {
+  const s = e.target.closest('[data-status]'), a = e.target.closest('[data-assign]');
+  if (s) {
+    await sb.from('landing_leads').update({ status: s.value }).eq('id', s.dataset.status);
+    const l = LEADS.find(x => x.id === s.dataset.status); if (l) l.status = s.value;
+    renderLeads();
+  }
+  if (a) {
+    const v = a.value.trim() || null;
+    await sb.from('landing_leads').update({ assigned_to: v }).eq('id', a.dataset.assign);
+    const l = LEADS.find(x => x.id === a.dataset.assign); if (l) l.assigned_to = v;
+  }
+});
+
+/* ═══ 파이프라인 등록 ═══ */
+const pm = $('#pipeModal');
+let pmLead = null;
+
+$('#leadList').addEventListener('click', e => {
+  const b = e.target.closest('[data-pipe]');
+  if (b) openPipe(LEADS.find(l => l.id === b.dataset.pipe));
+});
+$('#pmCancel').addEventListener('click', () => pm.classList.remove('on'));
+
+function openPipe(l) {
+  pmLead = l;
+  const ev = EVENTS.find(e => e.slug === l.src);
+  const first = (l.product_ids || [])[0];
+  const mapped = PRODUCTS.find(p => p.product_id === first)?.pipeline_product || '';
+
+  $('#pmLead').textContent =
+    `${l.name} · ${l.hospital} ${l.department} · ${TYPE[l.request_type]} · ${ev?.name || l.src || 'direct'}`;
+  $('#pm-acc-code').value = '';
+  $('#pm-acc-name').value = l.hospital;
+  $('#pm-hq').innerHTML      = opts(PIPE_HQ, '병원');
+  $('#pm-div').innerHTML     = opts(PIPE_DIV);
+  $('#pm-office').value      = '';
+  $('#pm-rep').value         = l.assigned_to || '';
+  $('#pm-product').innerHTML = opts(PIPE_PRODUCT, mapped);
+  $('#pm-stage').innerHTML   = opts(PIPE_STAGE, l.request_type === 'demo' ? '데모' : '제품설명회');
+  $('#pm-notes').value =
+    `[QR 리드] ${ev?.name || l.src || 'direct'}${l.via ? '/' + l.via : ''} · ${TYPE[l.request_type]}\n`
+    + `${l.department} ${l.name} · ${l.phone}${l.email ? ' · ' + l.email : ''}\n`
+    + `관심: ${(l.product_ids || []).map(pname).join(', ') || '—'}`
+    + (l.message ? `\n"${l.message}"` : '');
+  pm.classList.add('on');
+}
+
+$('#pmSave').addEventListener('click', async () => {
+  const need = { 'pm-acc-code':'거래처 코드', 'pm-acc-name':'거래처명',
+                 'pm-office':'지점', 'pm-rep':'담당자' };
+  for (const [id, label] of Object.entries(need)) {
+    if (!$('#' + id).value.trim()) return show($('#pmMsg'), `${label}을(를) 입력해 주세요.`);
+  }
+  const btn = $('#pmSave'); btn.disabled = true;
+
+  const { data, error } = await sb.from('pipelines').insert({
+    acc_code:   $('#pm-acc-code').value.trim(),
+    acc_name:   $('#pm-acc-name').value.trim(),
+    hq:         $('#pm-hq').value,
+    div:        $('#pm-div').value,
+    office:     $('#pm-office').value.trim(),
+    rep:        $('#pm-rep').value.trim(),
+    product:    $('#pm-product').value,
+    stage:      $('#pm-stage').value,
+    notes:      $('#pm-notes').value.trim() || null,
+    owner_id:   USER.id,
+    owner_name: USER.email,
+  }).select('id').single();
+
+  if (error) { btn.disabled = false; return show($('#pmMsg'), error.message); }
+
+  await sb.from('landing_leads').update({
+    pipeline_id: data.id,
+    status: 'assigned',
+    assigned_to: $('#pm-rep').value.trim(),
+  }).eq('id', pmLead.id);
+
+  btn.disabled = false;
+  pm.classList.remove('on');
+  await loadLeads();
+});
+
+/* ═══ CSV ═══ */
+$('#csv').addEventListener('click', () => {
+  const head = ['일시','요청유형','이름','병원','진료과','휴대폰','이메일','관심제품',
+                '행사','배포처','상태','배정','파이프라인','메모'];
+  const body = filtered().map(l => [
+    new Date(l.created_at).toLocaleString('ko-KR'),
+    TYPE[l.request_type], l.name, l.hospital, l.department, l.phone, l.email || '',
+    (l.product_ids || []).map(pname).join(' / '),
+    EVENTS.find(e => e.slug === l.src)?.name || l.src || '', l.via || '',
+    STATUS[l.status], l.assigned_to || '', l.pipeline_id ? '등록됨' : '',
+    (l.message || '').replace(/\n/g, ' '),
+  ]);
+  const csv = '\uFEFF' + [head, ...body]
+    .map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = `leads_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click(); URL.revokeObjectURL(a.href);
+});
+</script>
+</body>
+</html>
