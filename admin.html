@@ -140,6 +140,13 @@
   .modal-c{background:#fff;border-radius:18px;padding:24px;width:100%;max-width:540px;margin:auto}
   .modal-c h2{font-size:19px;font-weight:700;letter-spacing:-.03em;margin-bottom:4px}
   .modal-c .hint{font-size:12.5px;color:var(--dim);margin-bottom:16px}
+  .chips-pick{display:flex;flex-wrap:wrap;gap:7px}
+  .chips-pick label{display:inline-flex;align-items:center;gap:7px;border:1.5px solid var(--line);
+                    border-radius:999px;padding:8px 13px;cursor:pointer;font-size:13.5px;background:#fff}
+  .chips-pick label:has(input:checked){border-color:var(--blue);background:#f0f7ff;font-weight:600}
+  .chips-pick input{width:16px;height:16px;accent-color:var(--blue)}
+  .conf-ads{font-size:12px;color:var(--dim);margin-top:2px}
+  .conf-ads b{color:var(--blue);font-weight:600}
 
   /* 이미지 업로드 */
   .drop{border:1.5px dashed var(--line);border-radius:12px;padding:18px;text-align:center;
@@ -194,8 +201,18 @@
     <section class="pane on" id="pane-events">
       <div class="card">
         <div class="row" style="margin-bottom:14px">
-          <div><h2>행사</h2>
-            <p class="hint" style="margin:0">행사 1개 = QR 1세트. 노출할 품목을 골라 지정합니다.</p></div>
+          <div><h2>🎓 학회</h2>
+            <p class="hint" style="margin:0">신규도입처 트래커의 <b>'학회 관리'</b>에 등록하면 여기에 자동으로 뜹니다.
+              <b>부스 제품이 QR 노출 품목으로 자동 설정</b>됩니다.</p></div>
+          <button class="btn ghost sm" id="reloadConf">↻ 새로고침</button>
+        </div>
+        <div id="confList"><div class="empty">불러오는 중…</div></div>
+      </div>
+
+      <div class="card">
+        <div class="row" style="margin-bottom:14px">
+          <div><h2>기타 행사</h2>
+            <p class="hint" style="margin:0">브로셔 · 명함 · 이메일 · 자문회의 등 학회가 아닌 QR</p></div>
           <button class="btn" id="newEvent">+ 새 행사</button>
         </div>
         <div id="eventList"><div class="empty">불러오는 중…</div></div>
@@ -383,33 +400,45 @@
   </div>
 </div>
 
-<!-- ══ 파이프라인 등록 모달 ══ -->
+<!-- ══ 신규도입처 등록 모달 ══ -->
 <div class="modal" id="pipeModal">
   <div class="modal-c">
-    <h2>파이프라인 등록</h2>
+    <h2>신규도입처 등록</h2>
     <p class="hint" id="pmLead"></p>
+
+    <label class="lbl">거래처 검색 — 코드 또는 병원명 (기존 거래처에서 찾습니다)</label>
+    <input class="in" id="pm-search" list="accList" placeholder="10035376 또는 서울아산병원">
+    <datalist id="accList"></datalist>
+    <div class="msg" id="pmFound"></div>
+
     <div class="g2">
-      <div><label class="lbl">거래처 코드</label><input class="in" id="pm-acc-code"></div>
-      <div><label class="lbl">거래처명</label><input class="in" id="pm-acc-name"></div>
+      <div><label class="lbl">거래처코드 <span style="color:var(--amber)">*</span></label>
+        <input class="in" id="pm-acc-code" style="font-family:var(--mono)"></div>
+      <div><label class="lbl">거래처명 <span style="color:var(--amber)">*</span></label>
+        <input class="in" id="pm-acc-name"></div>
     </div>
     <div class="g3">
       <div><label class="lbl">본부</label><select class="in" id="pm-hq"></select></div>
-      <div><label class="lbl">지역</label><select class="in" id="pm-div"></select></div>
-      <div><label class="lbl">지점</label>
+      <div><label class="lbl">사업부</label><select class="in" id="pm-div"></select></div>
+      <div><label class="lbl">사무소</label>
         <input class="in" id="pm-office" list="officeList">
         <datalist id="officeList"></datalist></div>
     </div>
     <div class="g3">
       <div><label class="lbl">담당자</label><input class="in" id="pm-rep"></div>
-      <div><label class="lbl">제품</label><select class="in" id="pm-product"></select></div>
       <div><label class="lbl">단계</label><select class="in" id="pm-stage"></select></div>
+      <div><label class="lbl">소유 팀 (트래커 표시 기준)</label><select class="in" id="pm-owner"></select></div>
     </div>
+
+    <label class="lbl">등록할 품목 — 체크한 개수만큼 신규도입처가 생성됩니다</label>
+    <div id="pm-products" class="chips-pick"></div>
+
     <label class="lbl">메모</label>
     <textarea class="in" id="pm-notes"></textarea>
     <div class="msg" id="pmMsg"></div>
     <div class="row" style="margin-top:18px">
       <button class="btn ghost" id="pmCancel">취소</button>
-      <button class="btn" id="pmSave">파이프라인에 등록</button>
+      <button class="btn" id="pmSave">신규도입처에 등록</button>
     </div>
   </div>
 </div>
@@ -455,14 +484,13 @@ const KIND   = { conference:'학회', symposium:'심포지엄', advisory:'자문
 const TYPE   = { material:'자료 받기', demo:'데모 요청', visit:'방문 요청' };
 const STATUS = { new:'신규', assigned:'배정됨', contacted:'연락함', closed:'종료', dropped:'보류' };
 
-/* pipelines 테이블의 CHECK 제약과 동일해야 합니다 */
+/* pipelines.product / stage 는 DB CHECK 제약과 동일해야 합니다 */
 const PIPE_PRODUCT = ['씽크','CGM Live','카트ON','카트BP','CL note','모비케어','에티아',
                       '옵티나&위스키','더스피로킷','리브레','웰다'];
-const PIPE_HQ      = ['병원','로컬'];
-const PIPE_DIV     = ['서울1','서울2','서울3','서울4','지방1','지방2'];
-const PIPE_STAGE   = ['제품설명회','데모','계약','첫처방'];
-const PIPE_OFFICE  = ['병원서울3','병원경인','병원중부1','병원대전','병원청주','병원강원',
-                      '병원부산1','병원부산2','병원광주2','병원동부','경인4','남부1','남부2','동부1'];
+const PIPE_HQ    = ['병원','로컬'];
+const PIPE_STAGE = ['제품설명회','데모','계약','첫처방'];
+/* 사업부·사무소·소유팀은 하드코딩하지 않고 실제 데이터에서 가져옵니다 */
+let PIPE_DIV = [], PIPE_OFFICE = [], OWNERS = [], ACCOUNTS = [], CONFS = [];
 
 let USER = null, CATALOG = [], PRODUCTS = [], EVENTS = [], LEADS = [], CUR = null, PICK = [];
 
@@ -485,12 +513,31 @@ async function boot() {
   $('#whoEmail').textContent = USER?.email || '';
   $('#login').style.display = 'none';
   $('#app').classList.add('on');
-  $('#officeList').innerHTML = PIPE_OFFICE.map(o => `<option value="${esc(o)}">`).join('');
   await loadAll();
 }
+
 async function loadAll() {
-  await Promise.all([loadCatalog(), loadProducts(), loadLeads()]);
-  await loadEvents();
+  await Promise.all([loadCatalog(), loadProducts(), loadLeads(), loadOrg()]);
+  await Promise.all([loadEvents(), loadConfs()]);
+}
+
+/* 신규도입처 트래커의 조직 · 거래처 · 소유팀을 그대로 가져옵니다 */
+async function loadOrg() {
+  const [acc, own, pipes] = await Promise.all([
+    sb.from('landing_accounts').select('*'),
+    sb.from('landing_owners').select('*'),
+    sb.from('pipelines').select('div,office'),
+  ]);
+  ACCOUNTS = acc.data || [];
+  OWNERS   = own.data || [];
+
+  const src = [...ACCOUNTS, ...(pipes.data || [])];
+  PIPE_DIV    = [...new Set(src.map(a => a.div).filter(Boolean))].sort();
+  PIPE_OFFICE = [...new Set(src.map(a => a.office).filter(Boolean))].sort();
+
+  $('#accList').innerHTML = ACCOUNTS
+    .map(a => `<option value="${esc(a.acc_code)}">${esc(a.acc_name)}</option>`).join('');
+  $('#officeList').innerHTML = PIPE_OFFICE.map(o => `<option value="${esc(o)}">`).join('');
 }
 
 $$('.tab').forEach(t => t.addEventListener('click', () => {
@@ -673,6 +720,90 @@ $('#imSave').addEventListener('click', async () => {
 /* ═══════════════════════════════════════════════════════════
    행사
    ═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   학회 — 신규도입처 트래커 '학회 관리'에서 그대로 가져옵니다
+   ═══════════════════════════════════════════════════════════ */
+async function loadConfs() {
+  const { data, error } = await sb.from('conferences')
+    .select('*').order('start_date', { ascending: false });
+  if (error) return console.error(error);
+  CONFS = data;
+  renderConfs();
+}
+$('#reloadConf').addEventListener('click', async () => { await loadConfs(); await loadEvents(); });
+
+/* 부스 · 런천 · 내지에 걸린 제품을 QR 노출 품목으로 매핑 */
+function boothProducts(conf) {
+  const a = conf.ads || {};
+  return [...new Set([
+    ...(a.booths || []).map(b => b && b.product),
+    a.luncheon && a.luncheon.enabled ? a.luncheon.product : null,
+    a.insert   && a.insert.enabled   ? a.insert.product   : null,
+  ].filter(Boolean))];
+}
+function boothProductIds(conf) {
+  const names = new Set(boothProducts(conf));
+  return PRODUCTS.filter(p => p.pipeline_product && names.has(p.pipeline_product))
+                 .map(p => p.product_id);
+}
+function suggestSlug(conf) {
+  const d = (conf.start_date || new Date().toISOString().slice(0, 10)).replace(/-/g, '');
+  let s = `conf-${d}`, n = 1;
+  while (EVENTS.some(e => e.slug === s)) s = `conf-${d}-${++n}`;
+  return s;
+}
+
+function renderConfs() {
+  const el = $('#confList');
+  if (!CONFS.length) {
+    return el.innerHTML = '<div class="empty">학회가 없습니다. 신규도입처 트래커의 \'학회 관리\'에서 등록하세요.</div>';
+  }
+  el.innerHTML = CONFS.map(c => {
+    const ev    = EVENTS.find(e => e.conference_id === c.id);
+    const names = boothProducts(c);
+    const ids   = boothProductIds(c);
+    const unmapped = names.filter(n => !PRODUCTS.some(p => p.pipeline_product === n));
+    const when  = [c.start_date, c.end_date].filter(Boolean).join(' ~ ') || '기간 미정';
+    const leads = ev ? LEADS.filter(l => l.src === ev.slug).length : 0;
+    return `
+      <div class="item">
+        <div class="item-main">
+          <div class="item-t">${esc(c.conf_name)}
+            ${ev ? `<span class="pill live">QR 있음</span>` : `<span class="pill off">QR 없음</span>`}
+            ${ev ? `<span class="pill">리드 ${leads}</span>` : ''}
+          </div>
+          <div class="item-s">${esc(when)} · ${esc(c.acc_name || '거래처 미지정')} · ${esc(c.rep || '-')}</div>
+          <div class="conf-ads">부스 제품: ${names.length
+            ? names.map(n => `<b>${esc(n)}</b>`).join(' · ')
+            : '없음'}${unmapped.length ? ` <span style="color:var(--amber)">(${unmapped.map(esc).join(', ')}는 카탈로그에 없어 제외)</span>` : ''}</div>
+        </div>
+        <button class="btn ${ev ? 'ghost' : ''} sm" data-conf="${esc(c.id)}">
+          ${ev ? 'QR 열기' : 'QR 만들기'}</button>
+      </div>`;
+  }).join('');
+}
+
+$('#confList').addEventListener('click', e => {
+  const b = e.target.closest('[data-conf]');
+  if (!b) return;
+  const c  = CONFS.find(x => x.id === b.dataset.conf);
+  const ev = EVENTS.find(x => x.conference_id === c.id);
+  if (ev) return openEvent(ev);
+
+  openEvent(null, {                       // 학회 정보로 QR 초안을 채워 엽니다
+    kind: 'conference',
+    active: true,
+    conference_id: c.id,
+    name: c.conf_name,
+    slug: suggestSlug(c),
+    starts_on: c.start_date || '',
+    ends_on: c.end_date || '',
+    venue: c.acc_name || '',
+    hero_eyebrow: c.conf_name,
+    pick: boothProductIds(c),             // 부스 제품 자동 체크
+  });
+});
+
 async function loadEvents() {
   const { data, error } = await sb.from('landing_events')
     .select('*, landing_event_products(product_id, sort_order)')
@@ -680,6 +811,7 @@ async function loadEvents() {
   if (error) return console.error(error);
   EVENTS = data;
   renderEvents();
+  if (CONFS.length) renderConfs();
   $('#fSrc').innerHTML = '<option value="">전체 행사</option>'
     + EVENTS.map(e => `<option value="${esc(e.slug)}">${esc(e.name)}</option>`).join('');
 }
@@ -717,28 +849,36 @@ document.addEventListener('click', e => {
   if (b) openEvent(EVENTS.find(x => x.id === b.dataset.openEvent));
 });
 
-function openEvent(e) {
-  CUR = e || { id: null, kind: 'conference', active: true };
-  $('#edTitle').textContent = e ? e.name : '새 행사';
+function openEvent(e, draft) {
+  CUR = e || draft || { id: null, kind: 'conference', active: true };
+  const v = CUR;
+  const linked = CONFS.find(c => c.id === v.conference_id);
+
+  $('#edTitle').textContent = v.name || '새 행사';
   $('#edSub').textContent = e
-    ? `QR 주소: ?src=${e.slug}`
-    : '이미 배포한 QR이 있다면 slug 를 바꾸지 마세요 — 기존 QR이 무효가 됩니다.';
-  $('#ed-name').value     = e?.name || '';
-  $('#ed-kind').value     = e?.kind || 'conference';
-  $('#ed-slug').value     = e?.slug || '';
-  $('#ed-start').value    = e?.starts_on || '';
-  $('#ed-end').value      = e?.ends_on || '';
-  $('#ed-venue').value    = e?.venue || '';
-  $('#ed-eyebrow').value  = e?.hero_eyebrow || '';
-  $('#ed-headline').value = e?.hero_headline || '';
-  $('#ed-sub').value      = e?.hero_sub || '';
-  $('#ed-active').checked = e ? e.active : true;
+    ? `QR 주소: ?src=${e.slug}` + (linked ? ` · 학회 연동: ${linked.conf_name}` : '')
+    : linked
+      ? `학회 '${linked.conf_name}' 의 QR 을 만듭니다. 부스 제품이 미리 체크돼 있습니다.`
+      : '이미 배포한 QR 이 있다면 slug 를 바꾸지 마세요 — 기존 QR 이 무효가 됩니다.';
+
+  $('#ed-name').value     = v.name || '';
+  $('#ed-kind').value     = v.kind || 'conference';
+  $('#ed-slug').value     = v.slug || '';
+  $('#ed-start').value    = v.starts_on || '';
+  $('#ed-end').value      = v.ends_on || '';
+  $('#ed-venue').value    = v.venue || '';
+  $('#ed-eyebrow').value  = v.hero_eyebrow || '';
+  $('#ed-headline').value = v.hero_headline || '';
+  $('#ed-sub').value      = v.hero_sub || '';
+  $('#ed-active').checked = v.active !== false;
   $('#edDelete').style.display = e ? '' : 'none';
 
-  PICK = (e?.landing_event_products || [])
-    .slice().sort((a, b) => a.sort_order - b.sort_order)
-    .map(x => x.product_id)
-    .filter(id => PRODUCTS.some(p => p.product_id === id));
+  PICK = e
+    ? (e.landing_event_products || []).slice()
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .map(x => x.product_id)
+        .filter(id => PRODUCTS.some(p => p.product_id === id))
+    : (draft && draft.pick ? [...draft.pick] : []);
 
   renderPick();
   drawQR();
@@ -803,6 +943,7 @@ $('#edSave').addEventListener('click', async () => {
     hero_headline: $('#ed-headline').value.trim() || null,
     hero_sub:      $('#ed-sub').value.trim()      || null,
     active:        $('#ed-active').checked,
+    conference_id: CUR.conference_id || null,
     created_by:    USER?.email || null,
   };
 
@@ -823,6 +964,7 @@ $('#edSave').addEventListener('click', async () => {
   if (e2) return show($('#edMsg'), e2.message);
 
   await loadEvents();
+  renderConfs();
   CUR = EVENTS.find(x => x.id === id);
   $('#edTitle').textContent = CUR.name;
   $('#edSub').textContent = `QR 주소: ?src=${CUR.slug}`;
@@ -843,6 +985,7 @@ $('#edDelete').addEventListener('click', async () => {
   $('#eventDetail').style.display = 'none';
   CUR = null;
   await loadEvents();
+  renderConfs();
 });
 
 /* ═══ QR ═══
@@ -979,7 +1122,7 @@ function renderLeads() {
     ['데모 요청', rows.filter(l => l.request_type === 'demo').length],
     ['자료 받기', rows.filter(l => l.request_type === 'material').length],
     ['미처리',    rows.filter(l => l.status === 'new').length],
-    ['파이프라인', rows.filter(l => l.pipeline_id).length],
+    ['신규도입처', rows.filter(l => l.pipeline_id).length],
   ].map(([k, v]) => `<div class="stat"><b>${v}</b><span>${k}</span></div>`).join('');
 
   const el = $('#leadList');
@@ -996,7 +1139,7 @@ function renderLeads() {
           <span class="lead-n">${esc(l.name)}</span>
           <span class="lead-o">${esc(l.hospital)} · ${esc(l.department)}</span>
           <span class="pill req-${l.request_type}">${TYPE[l.request_type]}</span>
-          ${l.pipeline_id ? '<span class="pill live">파이프라인 등록됨</span>' : ''}
+          ${l.pipeline_id ? '<span class="pill live">신규도입처 등록됨</span>' : ''}
         </div>
         <div class="lead-m">
           ${esc(when)} · <b>${esc(ev?.name || l.src || 'direct')}</b>${l.via ? ' / ' + esc(l.via) : ''}
@@ -1010,7 +1153,7 @@ function renderLeads() {
           </select>
           <input data-assign="${esc(l.id)}" value="${esc(l.assigned_to || '')}" placeholder="배정 담당자">
           <a class="btn ghost sm" href="tel:${esc((l.phone || '').replace(/[^0-9+]/g, ''))}">전화</a>
-          ${l.pipeline_id ? '' : `<button class="btn sm" data-pipe="${esc(l.id)}">파이프라인 등록</button>`}
+          ${l.pipeline_id ? '' : `<button class="btn sm" data-pipe="${esc(l.id)}">신규도입처 등록</button>`}
         </div>
       </div>`;
   }).join('');
@@ -1030,7 +1173,11 @@ $('#leadList').addEventListener('change', async e => {
   }
 });
 
-/* ═══ 파이프라인 등록 ═══ */
+/* ═══════════════════════════════════════════════════════════
+   신규도입처 등록 — 리드 → pipelines
+   ★ owner_id 는 Auth UUID 가 아니라 MKT0 / dh1 / dh2 / boss 같은
+     팀 코드입니다. UUID 를 넣으면 트래커 화면에서 안 보입니다.
+   ═══════════════════════════════════════════════════════════ */
 const pm = $('#pipeModal');
 let pmLead = null;
 
@@ -1040,63 +1187,120 @@ $('#leadList').addEventListener('click', e => {
 });
 $('#pmCancel').addEventListener('click', () => pm.classList.remove('on'));
 
+/* 병원명으로 기존 거래처를 먼저 찾아봅니다 */
+function guessAccount(hospital) {
+  const h2 = (hospital || '').replace(/\s/g, '');
+  if (!h2) return null;
+  return ACCOUNTS.find(a => {
+    const n = (a.acc_name || '').replace(/\s/g, '');
+    return n === h2 || n.includes(h2) || h2.includes(n);
+  }) || null;
+}
+
+function fillAccount(a) {
+  const m = $('#pmFound');
+  if (!a) { m.classList.remove('show'); return; }
+  $('#pm-acc-code').value = a.acc_code || '';
+  $('#pm-acc-name').value = a.acc_name || '';
+  $('#pm-hq').value       = a.hq     || '병원';
+  $('#pm-div').innerHTML  = opts(PIPE_DIV, a.div || '');
+  $('#pm-office').value   = a.office || '';
+  if (!$('#pm-rep').value) $('#pm-rep').value = a.rep || '';
+  show(m, `기존 거래처를 찾았습니다 — ${a.acc_name} (${a.acc_code})`, 'ok');
+}
+
+$('#pm-search').addEventListener('input', () => {
+  const q = $('#pm-search').value.trim();
+  if (!q) return;
+  const a = ACCOUNTS.find(x => x.acc_code === q)
+         || ACCOUNTS.find(x => (x.acc_name || '').replace(/\s/g, '') === q.replace(/\s/g, ''));
+  if (a) fillAccount(a);
+});
+
 function openPipe(l) {
   pmLead = l;
-  const ev = EVENTS.find(e => e.slug === l.src);
-  const first = (l.product_ids || [])[0];
-  const mapped = PRODUCTS.find(p => p.product_id === first)?.pipeline_product || '';
+  const ev  = EVENTS.find(e => e.slug === l.src);
+  const acc = guessAccount(l.hospital);
 
   $('#pmLead').textContent =
-    `${l.name} · ${l.hospital} ${l.department} · ${TYPE[l.request_type]} · ${ev?.name || l.src || 'direct'}`;
+    `${l.name} · ${l.hospital} ${l.department} · ${TYPE[l.request_type]} · ${ev ? ev.name : (l.src || 'direct')}`;
+
+  $('#pm-search').value   = '';
   $('#pm-acc-code').value = '';
   $('#pm-acc-name').value = l.hospital;
-  $('#pm-hq').innerHTML      = opts(PIPE_HQ, '병원');
-  $('#pm-div').innerHTML     = opts(PIPE_DIV);
-  $('#pm-office').value      = '';
-  $('#pm-rep').value         = l.assigned_to || '';
-  $('#pm-product').innerHTML = opts(PIPE_PRODUCT, mapped);
-  $('#pm-stage').innerHTML   = opts(PIPE_STAGE, l.request_type === 'demo' ? '데모' : '제품설명회');
+  $('#pm-hq').innerHTML     = opts(PIPE_HQ, '병원');
+  $('#pm-div').innerHTML    = opts(PIPE_DIV);
+  $('#pm-office').value     = '';
+  $('#pm-rep').value        = l.assigned_to || '';
+  $('#pm-stage').innerHTML  = opts(PIPE_STAGE, l.request_type === 'demo' ? '데모' : '제품설명회');
+
+  const lastOwner = localStorage.getItem('dh_owner_id') || 'MKT0';
+  $('#pm-owner').innerHTML = OWNERS
+    .map(o => `<option value="${esc(o.owner_id)}" ${o.owner_id === lastOwner ? 'selected' : ''}
+                >${esc(o.owner_id)} · ${esc(o.owner_name || '')}</option>`).join('');
+
+  // 리드가 고른 관심제품을 pipelines.product 로 매핑해 미리 체크
+  const want = new Set((l.product_ids || [])
+    .map(id => PRODUCTS.find(p => p.product_id === id)?.pipeline_product)
+    .filter(Boolean));
+  $('#pm-products').innerHTML = PIPE_PRODUCT.map(prod => `
+    <label><input type="checkbox" value="${esc(prod)}" ${want.has(prod) ? 'checked' : ''}>
+      ${esc(prod)}</label>`).join('');
+
   $('#pm-notes').value =
-    `[QR 리드] ${ev?.name || l.src || 'direct'}${l.via ? '/' + l.via : ''} · ${TYPE[l.request_type]}\n`
+    `[QR 리드] ${ev ? ev.name : (l.src || 'direct')}${l.via ? '/' + l.via : ''} · ${TYPE[l.request_type]}\n`
     + `${l.department} ${l.name} · ${l.phone}${l.email ? ' · ' + l.email : ''}\n`
     + `관심: ${(l.product_ids || []).map(pname).join(', ') || '—'}`
     + (l.message ? `\n"${l.message}"` : '');
+
+  fillAccount(acc);                       // 병원명으로 자동 매칭되면 채워집니다
   pm.classList.add('on');
 }
 
 $('#pmSave').addEventListener('click', async () => {
-  const need = { 'pm-acc-code':'거래처 코드', 'pm-acc-name':'거래처명',
-                 'pm-office':'지점', 'pm-rep':'담당자' };
-  for (const [id, label] of Object.entries(need)) {
-    if (!$('#' + id).value.trim()) return show($('#pmMsg'), `${label}을(를) 입력해 주세요.`);
-  }
+  const m = $('#pmMsg');
+  const accCode = $('#pm-acc-code').value.trim();
+  const accName = $('#pm-acc-name').value.trim();
+  const office  = $('#pm-office').value.trim();
+  const rep     = $('#pm-rep').value.trim();
+  const owner   = $('#pm-owner').value;
+  const prods   = [...$('#pm-products').querySelectorAll('input:checked')].map(i => i.value);
+
+  if (!accCode) return show(m, '거래처코드를 입력해 주세요. (신규도입처는 코드 기준으로 관리됩니다)');
+  if (!accName) return show(m, '거래처명을 입력해 주세요.');
+  if (!office)  return show(m, '사무소를 입력해 주세요.');
+  if (!rep)     return show(m, '담당자를 입력해 주세요.');
+  if (!prods.length) return show(m, '등록할 품목을 최소 1개 선택해 주세요.');
+
   const btn = $('#pmSave'); btn.disabled = true;
+  const ownerName = OWNERS.find(o => o.owner_id === owner)?.owner_name || null;
 
-  const { data, error } = await sb.from('pipelines').insert({
-    acc_code:   $('#pm-acc-code').value.trim(),
-    acc_name:   $('#pm-acc-name').value.trim(),
-    hq:         $('#pm-hq').value,
-    div:        $('#pm-div').value,
-    office:     $('#pm-office').value.trim(),
-    rep:        $('#pm-rep').value.trim(),
-    product:    $('#pm-product').value,
-    stage:      $('#pm-stage').value,
-    notes:      $('#pm-notes').value.trim() || null,
-    owner_id:   USER.id,
-    owner_name: USER.email,
-  }).select('id').single();
+  const rows = prods.map(product => ({
+    acc_code: accCode, acc_name: accName,
+    hq:     $('#pm-hq').value,
+    div:    $('#pm-div').value,
+    office, rep, product,
+    stage:  $('#pm-stage').value,
+    notes:  $('#pm-notes').value.trim() || null,
+    owner_id:   owner,          // ★ 팀 코드 (UUID 아님)
+    owner_name: ownerName,
+  }));
 
-  if (error) { btn.disabled = false; return show($('#pmMsg'), error.message); }
+  const { data, error } = await sb.from('pipelines').insert(rows).select('id');
+  if (error) { btn.disabled = false; return show(m, error.message); }
 
   await sb.from('landing_leads').update({
-    pipeline_id: data.id,
+    pipeline_id: data[0].id,
     status: 'assigned',
-    assigned_to: $('#pm-rep').value.trim(),
+    assigned_to: rep,
+    note: `거래처 ${accCode} / 신규도입처 ${data.length}건 생성`,
   }).eq('id', pmLead.id);
 
+  localStorage.setItem('dh_owner_id', owner);
   btn.disabled = false;
   pm.classList.remove('on');
-  await loadLeads();
+  await Promise.all([loadLeads(), loadOrg()]);
+  show($('#itemsMsg'), `신규도입처 ${data.length}건을 등록했습니다.`, 'ok');
 });
 
 /* ═══ CSV ═══ */
